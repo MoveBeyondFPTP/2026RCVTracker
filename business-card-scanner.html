@@ -1,0 +1,1345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#1a1d2e">
+<title>Card2CRM – Business Card Scanner</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d2e;
+    --surface2: #252840;
+    --border: #2e3250;
+    --accent: #6c63ff;
+    --accent2: #a78bfa;
+    --green: #34d399;
+    --red: #f87171;
+    --yellow: #fbbf24;
+    --text: #e8eaf6;
+    --muted: #8b90b8;
+    --radius: 14px;
+  }
+
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    overflow-x: hidden;
+  }
+
+  /* ── Header ── */
+  header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 14px 18px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  header .logo { display: flex; align-items: center; gap: 10px; }
+  header .logo-icon { font-size: 1.5rem; }
+  header h1 { font-size: 1.1rem; font-weight: 700; letter-spacing: -0.3px; }
+  header .subtitle { font-size: 0.7rem; color: var(--muted); margin-top: 1px; }
+
+  .settings-btn {
+    background: none; border: 1px solid var(--border); color: var(--muted);
+    padding: 7px 10px; border-radius: 8px; cursor: pointer; font-size: 1rem;
+    transition: all 0.2s;
+  }
+  .settings-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* ── Tab bar ── */
+  .tabs {
+    display: flex;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+  }
+  .tab {
+    flex: 1; padding: 12px 8px; text-align: center;
+    font-size: 0.8rem; font-weight: 600; color: var(--muted);
+    cursor: pointer; border-bottom: 3px solid transparent;
+    transition: all 0.2s; letter-spacing: 0.3px; text-transform: uppercase;
+  }
+  .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .tab-icon { display: block; font-size: 1.3rem; margin-bottom: 2px; }
+
+  /* ── Views ── */
+  .view { display: none; flex: 1; flex-direction: column; overflow-y: auto; }
+  .view.active { display: flex; }
+
+  /* ── Scan View ── */
+  .scan-hero {
+    padding: 24px 18px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+  }
+
+  .camera-area {
+    width: 100%;
+    max-width: 420px;
+    aspect-ratio: 16/10;
+    background: var(--surface2);
+    border: 2px dashed var(--border);
+    border-radius: var(--radius);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    position: relative;
+    overflow: hidden;
+    cursor: pointer;
+    transition: border-color 0.2s;
+  }
+  .camera-area:hover { border-color: var(--accent); }
+  .camera-area.has-image { border-style: solid; border-color: var(--accent); }
+  .camera-area .placeholder-icon { font-size: 3.5rem; opacity: 0.4; }
+  .camera-area .placeholder-text { font-size: 0.9rem; color: var(--muted); text-align: center; line-height: 1.4; }
+  .camera-area img {
+    position: absolute; inset: 0; width: 100%; height: 100%;
+    object-fit: cover; border-radius: calc(var(--radius) - 2px);
+  }
+  .camera-area .change-overlay {
+    position: absolute; inset: 0; background: rgba(0,0,0,0.5);
+    display: flex; align-items: center; justify-content: center;
+    color: white; font-size: 0.85rem; font-weight: 600;
+    opacity: 0; transition: opacity 0.2s;
+    border-radius: calc(var(--radius) - 2px);
+  }
+  .camera-area.has-image:hover .change-overlay { opacity: 1; }
+
+  #fileInput { display: none; }
+
+  .btn-row {
+    display: flex; gap: 12px; width: 100%; max-width: 420px;
+    justify-content: center;
+  }
+
+  .btn {
+    display: flex; align-items: center; gap: 8px;
+    padding: 13px 22px; border-radius: 10px;
+    font-size: 0.95rem; font-weight: 600;
+    border: none; cursor: pointer; transition: all 0.2s;
+    text-decoration: none; white-space: nowrap;
+  }
+  .btn-primary { background: var(--accent); color: white; flex: 1; justify-content: center; }
+  .btn-primary:hover { background: #7c75ff; transform: translateY(-1px); }
+  .btn-primary:active { transform: translateY(0); }
+  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+  .btn-secondary { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+  .btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
+  .btn-ghost { background: none; color: var(--muted); border: 1px solid var(--border); }
+
+  .scanning-state {
+    display: none; flex-direction: column; align-items: center;
+    gap: 14px; padding: 20px 0;
+    width: 100%; max-width: 420px;
+  }
+  .scanning-state.visible { display: flex; }
+  .spinner {
+    width: 48px; height: 48px;
+    border: 3px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .scanning-msg { font-size: 0.9rem; color: var(--muted); text-align: center; }
+
+  /* ── Contacts View ── */
+  .contacts-toolbar {
+    padding: 12px 16px;
+    display: flex; gap: 10px; align-items: center;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    position: sticky; top: 0; z-index: 10;
+  }
+  .search-wrap { flex: 1; position: relative; }
+  .search-wrap input {
+    width: 100%; background: var(--surface2); border: 1px solid var(--border);
+    color: var(--text); padding: 9px 12px 9px 36px; border-radius: 8px;
+    font-size: 0.9rem; outline: none;
+  }
+  .search-wrap input:focus { border-color: var(--accent); }
+  .search-wrap .search-icon {
+    position: absolute; left: 11px; top: 50%; transform: translateY(-50%);
+    font-size: 1rem; opacity: 0.4; pointer-events: none;
+  }
+  .toolbar-btn {
+    background: var(--surface2); border: 1px solid var(--border); color: var(--muted);
+    padding: 9px 12px; border-radius: 8px; cursor: pointer; font-size: 0.9rem;
+    white-space: nowrap; transition: all 0.2s; font-weight: 500;
+  }
+  .toolbar-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  .contacts-count {
+    padding: 8px 16px; font-size: 0.78rem; color: var(--muted);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .contact-cards {
+    flex: 1; overflow-y: auto; padding: 12px 16px;
+    display: flex; flex-direction: column; gap: 10px;
+  }
+
+  .contact-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+  }
+  .contact-card:hover { border-color: var(--accent); transform: translateY(-1px); }
+  .contact-card:active { transform: translateY(0); }
+  .card-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+  .card-name { font-weight: 700; font-size: 1rem; }
+  .card-date { font-size: 0.72rem; color: var(--muted); white-space: nowrap; }
+  .card-title-company { font-size: 0.82rem; color: var(--accent2); margin-bottom: 8px; }
+  .card-details { display: flex; flex-direction: column; gap: 3px; }
+  .card-detail { font-size: 0.8rem; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+  .card-detail .di { opacity: 0.7; font-size: 0.9rem; }
+  .card-notes-preview {
+    margin-top: 8px; padding: 7px 10px;
+    background: var(--surface2); border-radius: 6px;
+    font-size: 0.78rem; color: var(--muted);
+    border-left: 3px solid var(--accent);
+    overflow: hidden; text-overflow: ellipsis;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  }
+  .card-actions {
+    display: flex; gap: 8px; margin-top: 10px;
+  }
+  .card-action-btn {
+    flex: 1; padding: 7px; border-radius: 7px; border: 1px solid var(--border);
+    background: none; color: var(--muted); font-size: 0.78rem; cursor: pointer;
+    transition: all 0.2s; text-align: center; display: flex; align-items: center;
+    justify-content: center; gap: 5px;
+  }
+  .card-action-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .card-action-btn.danger:hover { border-color: var(--red); color: var(--red); }
+
+  .empty-state {
+    display: flex; flex-direction: column; align-items: center;
+    justify-content: center; padding: 60px 20px; gap: 14px;
+    color: var(--muted); text-align: center;
+    flex: 1;
+  }
+  .empty-state .ei { font-size: 4rem; opacity: 0.3; }
+  .empty-state p { font-size: 0.9rem; line-height: 1.6; }
+
+  /* ── Spreadsheet View ── */
+  .sheet-toolbar {
+    padding: 10px 16px;
+    display: flex; gap: 8px; align-items: center;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    position: sticky; top: 0; z-index: 10;
+    flex-wrap: wrap;
+  }
+  .sheet-wrap { overflow-x: auto; overflow-y: auto; flex: 1; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.8rem; min-width: 800px; }
+  thead th {
+    background: var(--surface2); color: var(--muted); font-weight: 600;
+    text-align: left; padding: 10px 12px; position: sticky; top: 0;
+    cursor: pointer; user-select: none; white-space: nowrap;
+    border-bottom: 1px solid var(--border); border-right: 1px solid var(--border);
+  }
+  thead th:hover { color: var(--text); }
+  thead th.sorted { color: var(--accent); }
+  tbody tr { border-bottom: 1px solid var(--border); transition: background 0.15s; }
+  tbody tr:hover { background: var(--surface); }
+  tbody td {
+    padding: 9px 12px; color: var(--text); vertical-align: top;
+    border-right: 1px solid var(--border); max-width: 180px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  tbody td.notes-cell { max-width: 240px; white-space: nowrap; }
+  tbody td .del-btn {
+    background: none; border: none; color: var(--red); cursor: pointer;
+    opacity: 0.6; font-size: 1rem; transition: opacity 0.2s;
+    padding: 0 4px;
+  }
+  tbody td .del-btn:hover { opacity: 1; }
+
+  /* ── Settings View ── */
+  .settings-view { padding: 20px 18px; display: flex; flex-direction: column; gap: 20px; }
+  .settings-section { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px; }
+  .settings-section h3 { font-size: 0.85rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 14px; }
+  .field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+  .field:last-child { margin-bottom: 0; }
+  .field label { font-size: 0.85rem; font-weight: 600; }
+  .field input, .field textarea {
+    background: var(--surface2); border: 1px solid var(--border);
+    color: var(--text); padding: 10px 12px; border-radius: 8px;
+    font-size: 0.9rem; outline: none; width: 100%;
+  }
+  .field input:focus, .field textarea:focus { border-color: var(--accent); }
+  .field .hint { font-size: 0.75rem; color: var(--muted); line-height: 1.4; }
+  .field input[type="password"] { letter-spacing: 2px; }
+
+  .danger-zone { border-color: #4a1d1d; }
+  .danger-zone h3 { color: var(--red); }
+
+  /* ── Modal ── */
+  .modal-backdrop {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.7);
+    z-index: 1000; display: flex; align-items: flex-end;
+    justify-content: center; padding: 0;
+    animation: fadeIn 0.2s ease;
+  }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  .modal {
+    background: var(--surface);
+    border-radius: var(--radius) var(--radius) 0 0;
+    padding: 0;
+    width: 100%; max-width: 540px;
+    max-height: 92vh;
+    overflow-y: auto;
+    animation: slideUp 0.25s ease;
+  }
+  @keyframes slideUp { from { transform: translateY(60px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+  .modal-handle {
+    width: 40px; height: 4px; background: var(--border);
+    border-radius: 2px; margin: 12px auto 0;
+  }
+  .modal-header {
+    padding: 16px 20px 12px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .modal-header h2 { font-size: 1.1rem; font-weight: 700; }
+  .modal-close {
+    background: none; border: none; color: var(--muted); font-size: 1.4rem;
+    cursor: pointer; padding: 4px 8px; border-radius: 6px; line-height: 1;
+  }
+  .modal-close:hover { color: var(--text); background: var(--surface2); }
+  .modal-body { padding: 20px; }
+  .modal-footer { padding: 16px 20px; border-top: 1px solid var(--border); display: flex; gap: 10px; justify-content: flex-end; }
+
+  .extracted-card {
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 10px; padding: 14px; margin-bottom: 16px;
+    display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+  }
+  .ext-field { display: flex; flex-direction: column; gap: 3px; }
+  .ext-field.full { grid-column: 1 / -1; }
+  .ext-field label { font-size: 0.72rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.4px; }
+  .ext-field input {
+    background: var(--bg); border: 1px solid var(--border);
+    color: var(--text); padding: 8px 10px; border-radius: 7px;
+    font-size: 0.88rem; outline: none; width: 100%;
+  }
+  .ext-field input:focus { border-color: var(--accent); }
+
+  .notes-section { margin-top: 4px; }
+  .notes-section label { font-size: 0.85rem; font-weight: 600; display: block; margin-bottom: 8px; }
+  .notes-section textarea {
+    width: 100%; background: var(--surface2); border: 1px solid var(--border);
+    color: var(--text); padding: 12px; border-radius: 8px;
+    font-size: 0.9rem; outline: none; resize: vertical; min-height: 100px;
+    font-family: inherit; line-height: 1.5;
+  }
+  .notes-section textarea:focus { border-color: var(--accent); }
+  .notes-section .hint { font-size: 0.75rem; color: var(--muted); margin-top: 5px; }
+
+  /* Detail modal */
+  .detail-section { margin-bottom: 20px; }
+  .detail-section h4 { font-size: 0.75rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 10px; }
+  .detail-row { display: flex; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--border); align-items: flex-start; }
+  .detail-row:last-child { border-bottom: none; }
+  .detail-row .dr-icon { font-size: 1rem; opacity: 0.7; width: 20px; flex-shrink: 0; padding-top: 1px; }
+  .detail-row .dr-label { font-size: 0.75rem; color: var(--muted); margin-bottom: 1px; }
+  .detail-row .dr-value { font-size: 0.88rem; font-weight: 500; word-break: break-all; }
+  .detail-row a { color: var(--accent2); text-decoration: none; }
+  .detail-row a:hover { text-decoration: underline; }
+  .notes-box {
+    background: var(--surface2); border-radius: 8px; padding: 12px;
+    font-size: 0.88rem; line-height: 1.6; color: var(--text);
+    white-space: pre-wrap; border-left: 3px solid var(--accent);
+  }
+  .card-image-preview {
+    width: 100%; border-radius: 8px; margin-bottom: 14px;
+    border: 1px solid var(--border);
+  }
+
+  /* Toast */
+  .toast-container { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); z-index: 9000; display: flex; flex-direction: column; gap: 8px; align-items: center; }
+  .toast {
+    background: var(--surface2); border: 1px solid var(--border);
+    padding: 10px 18px; border-radius: 20px; font-size: 0.85rem;
+    animation: toastIn 0.2s ease; white-space: nowrap;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+  }
+  .toast.success { border-color: var(--green); color: var(--green); }
+  .toast.error { border-color: var(--red); color: var(--red); }
+  @keyframes toastIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+  /* ── API key warning banner ── */
+  .api-banner {
+    background: #2a1f00; border: 1px solid var(--yellow);
+    border-radius: 10px; padding: 12px 16px; margin: 16px;
+    font-size: 0.85rem; color: var(--yellow); line-height: 1.5;
+    display: flex; gap: 10px; align-items: flex-start;
+  }
+  .api-banner .bi { flex-shrink: 0; font-size: 1.2rem; }
+  .api-banner a { color: inherit; text-decoration: underline; cursor: pointer; }
+
+  /* ── Stats bar ── */
+  .stats-bar {
+    display: flex; gap: 0;
+    background: var(--surface); border-bottom: 1px solid var(--border);
+  }
+  .stat-item {
+    flex: 1; padding: 10px 12px; text-align: center;
+    border-right: 1px solid var(--border);
+  }
+  .stat-item:last-child { border-right: none; }
+  .stat-num { font-size: 1.3rem; font-weight: 700; color: var(--accent2); }
+  .stat-label { font-size: 0.68rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.3px; }
+
+  /* Responsive tweaks */
+  @media (min-width: 600px) {
+    .modal { border-radius: var(--radius); margin: auto; }
+    .modal-backdrop { align-items: center; padding: 20px; }
+    .contact-cards { flex-direction: row; flex-wrap: wrap; }
+    .contact-card { flex: 1 1 calc(50% - 5px); min-width: 280px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <span class="logo-icon">💼</span>
+    <div>
+      <h1>Card2CRM</h1>
+      <div class="subtitle">Business Card Scanner</div>
+    </div>
+  </div>
+  <button class="settings-btn" onclick="showTab('settings')" title="Settings">⚙️</button>
+</header>
+
+<nav class="tabs">
+  <div class="tab active" onclick="showTab('scan')" id="tab-scan">
+    <span class="tab-icon">📷</span>Scan
+  </div>
+  <div class="tab" onclick="showTab('contacts')" id="tab-contacts">
+    <span class="tab-icon">👥</span>Contacts
+  </div>
+  <div class="tab" onclick="showTab('sheet')" id="tab-sheet">
+    <span class="tab-icon">📊</span>Spreadsheet
+  </div>
+  <div class="tab" onclick="showTab('settings')" id="tab-settings">
+    <span class="tab-icon">⚙️</span>Settings
+  </div>
+</nav>
+
+<!-- ═══ SCAN VIEW ═══ -->
+<div class="view active" id="view-scan">
+  <div id="apiBanner" class="api-banner" style="display:none">
+    <span class="bi">⚠️</span>
+    <span>No API key set. Go to <a onclick="showTab('settings')">Settings</a> and enter your Anthropic API key to enable automatic card scanning.</span>
+  </div>
+
+  <div class="scan-hero">
+    <div class="camera-area" id="cameraArea" onclick="triggerFileInput()">
+      <span class="placeholder-icon">📸</span>
+      <span class="placeholder-text">Tap to take a photo<br>or upload a business card image</span>
+      <img id="cardPreview" style="display:none">
+      <div class="change-overlay">📷 Change photo</div>
+    </div>
+
+    <input type="file" id="fileInput" accept="image/*" capture="environment" onchange="handleImageSelect(event)">
+
+    <div class="btn-row">
+      <button class="btn btn-primary" id="scanBtn" onclick="scanCard()" disabled>
+        <span>🔍</span> Scan Card
+      </button>
+      <button class="btn btn-secondary" onclick="addManually()">
+        ✏️ Manual
+      </button>
+    </div>
+
+    <div class="scanning-state" id="scanningState">
+      <div class="spinner"></div>
+      <div class="scanning-msg" id="scanningMsg">Analyzing business card…</div>
+    </div>
+  </div>
+
+  <!-- Stats bar -->
+  <div class="stats-bar">
+    <div class="stat-item">
+      <div class="stat-num" id="stat-total">0</div>
+      <div class="stat-label">Contacts</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-num" id="stat-today">0</div>
+      <div class="stat-label">Today</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-num" id="stat-week">0</div>
+      <div class="stat-label">This Week</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-num" id="stat-companies">0</div>
+      <div class="stat-label">Companies</div>
+    </div>
+  </div>
+
+  <!-- Recent cards preview -->
+  <div style="padding: 14px 16px;">
+    <div style="font-size:0.8rem; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:0.4px; margin-bottom:10px;">Recent Contacts</div>
+    <div id="recentList" style="display:flex; flex-direction:column; gap:8px;"></div>
+  </div>
+</div>
+
+<!-- ═══ CONTACTS VIEW ═══ -->
+<div class="view" id="view-contacts">
+  <div class="contacts-toolbar">
+    <div class="search-wrap">
+      <span class="search-icon">🔍</span>
+      <input type="text" placeholder="Search contacts…" id="searchInput" oninput="renderContacts()">
+    </div>
+    <button class="toolbar-btn" onclick="showTab('scan')">+ Scan</button>
+  </div>
+  <div class="contacts-count" id="contactsCount"></div>
+  <div class="contact-cards" id="contactCards">
+    <div class="empty-state">
+      <span class="ei">📇</span>
+      <p>No contacts yet.<br>Scan a business card to get started.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ SPREADSHEET VIEW ═══ -->
+<div class="view" id="view-sheet">
+  <div class="sheet-toolbar">
+    <button class="toolbar-btn" onclick="exportCSV()">⬇️ Export CSV</button>
+    <button class="toolbar-btn" onclick="copyTSV()">📋 Copy Table</button>
+    <span style="font-size:0.78rem; color:var(--muted); margin-left:auto;" id="sheetCount"></span>
+  </div>
+  <div class="sheet-wrap">
+    <table id="spreadsheet">
+      <thead>
+        <tr>
+          <th onclick="sortSheet('firstName')">First <span class="arr"></span></th>
+          <th onclick="sortSheet('lastName')">Last <span class="arr"></span></th>
+          <th onclick="sortSheet('company')">Company <span class="arr"></span></th>
+          <th onclick="sortSheet('title')">Title <span class="arr"></span></th>
+          <th onclick="sortSheet('email')">Email <span class="arr"></span></th>
+          <th onclick="sortSheet('phone')">Phone <span class="arr"></span></th>
+          <th onclick="sortSheet('dateAdded')">Date Added <span class="arr"></span></th>
+          <th onclick="sortSheet('website')">Website <span class="arr"></span></th>
+          <th class="notes-cell" onclick="sortSheet('notes')">Notes <span class="arr"></span></th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="sheetBody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ═══ SETTINGS VIEW ═══ -->
+<div class="view" id="view-settings">
+  <div class="settings-view">
+    <div class="settings-section">
+      <h3>🔑 Anthropic API Key</h3>
+      <div class="field">
+        <label>API Key</label>
+        <input type="password" id="apiKeyInput" placeholder="sk-ant-api03-…" autocomplete="off">
+        <span class="hint">Your key is stored only in your browser (localStorage). It never leaves your device except to make calls to the Anthropic API.<br><br>Get a key at <strong>console.anthropic.com</strong></span>
+      </div>
+      <button class="btn btn-primary" style="width:100%" onclick="saveApiKey()">Save API Key</button>
+    </div>
+
+    <div class="settings-section">
+      <h3>📊 Export & Backup</h3>
+      <div style="display:flex; flex-direction:column; gap:10px;">
+        <button class="btn btn-secondary" style="width:100%;justify-content:center" onclick="exportCSV()">⬇️ Export to CSV</button>
+        <button class="btn btn-secondary" style="width:100%;justify-content:center" onclick="exportJSON()">⬇️ Export JSON backup</button>
+        <label class="btn btn-secondary" style="width:100%;justify-content:center;cursor:pointer">
+          ⬆️ Import JSON backup
+          <input type="file" accept=".json" onchange="importJSON(event)" style="display:none">
+        </label>
+      </div>
+    </div>
+
+    <div class="settings-section">
+      <h3>ℹ️ About</h3>
+      <p style="font-size:0.85rem; color:var(--muted); line-height:1.6">
+        <strong>Card2CRM</strong> is a mobile-friendly business card scanner and CRM. Photos are sent to the Anthropic API for AI-powered data extraction. All contact data is stored locally in your browser.
+      </p>
+    </div>
+
+    <div class="settings-section danger-zone">
+      <h3>⚠️ Danger Zone</h3>
+      <button class="btn btn-ghost" style="width:100%;justify-content:center;border-color:var(--red);color:var(--red)" onclick="clearAllData()">🗑️ Delete All Contacts</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ NOTE MODAL ═══ -->
+<div class="modal-backdrop" id="noteModal" style="display:none" onclick="closeModalBackdrop(event,'noteModal')">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-handle"></div>
+    <div class="modal-header">
+      <h2 id="noteModalTitle">📋 Review & Add Notes</h2>
+      <button class="modal-close" onclick="closeModal('noteModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:0.82rem;color:var(--muted);margin-bottom:12px;">Review the extracted details and edit if needed, then add your notes.</p>
+      <div class="extracted-card" id="extractedFields">
+        <!-- Populated dynamically -->
+      </div>
+      <div class="notes-section">
+        <label>📝 Notes &amp; Follow-up</label>
+        <textarea id="notesInput" placeholder="e.g. Met at TechConf 2026. Interested in partnership. Follow up next week about Q2 pilot…"></textarea>
+        <div class="hint">Use this to record context, action items, or anything you want to remember about this person.</div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('noteModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveContact()">💾 Save Contact</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ DETAIL MODAL ═══ -->
+<div class="modal-backdrop" id="detailModal" style="display:none" onclick="closeModalBackdrop(event,'detailModal')">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-handle"></div>
+    <div class="modal-header">
+      <h2 id="detailModalTitle">Contact</h2>
+      <button class="modal-close" onclick="closeModal('detailModal')">✕</button>
+    </div>
+    <div class="modal-body" id="detailModalBody"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('detailModal')">Close</button>
+      <button class="btn btn-secondary" id="detailEditBtn">✏️ Edit Notes</button>
+      <button class="btn btn-primary" id="detailEmailBtn">✉️ Email</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ EDIT NOTES MODAL ═══ -->
+<div class="modal-backdrop" id="editNotesModal" style="display:none" onclick="closeModalBackdrop(event,'editNotesModal')">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-handle"></div>
+    <div class="modal-header">
+      <h2>✏️ Edit Contact</h2>
+      <button class="modal-close" onclick="closeModal('editNotesModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="extracted-card" id="editFields"></div>
+      <div class="notes-section">
+        <label>📝 Notes</label>
+        <textarea id="editNotesInput" style="min-height:120px"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('editNotesModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveEditedContact()">💾 Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast container -->
+<div class="toast-container" id="toastContainer"></div>
+
+<script>
+// ═══════════════════════════════════════════════════════════
+// DATA LAYER
+// ═══════════════════════════════════════════════════════════
+const STORAGE_KEY = 'card2crm_contacts';
+const API_KEY_KEY = 'card2crm_api_key';
+
+function getContacts() {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); }
+  catch { return []; }
+}
+
+function saveContacts(contacts) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(contacts));
+}
+
+function getApiKey() {
+  return localStorage.getItem(API_KEY_KEY) || '';
+}
+
+function genId() {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+}
+
+// ═══════════════════════════════════════════════════════════
+// NAVIGATION
+// ═══════════════════════════════════════════════════════════
+function showTab(tab) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('view-' + tab).classList.add('active');
+  document.getElementById('tab-' + tab).classList.add('active');
+
+  if (tab === 'contacts') renderContacts();
+  if (tab === 'sheet') renderSheet();
+  if (tab === 'scan') { renderStats(); renderRecent(); }
+  if (tab === 'settings') {
+    const key = getApiKey();
+    if (key) document.getElementById('apiKeyInput').value = key;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+// CAMERA / IMAGE HANDLING
+// ═══════════════════════════════════════════════════════════
+let currentImageDataUrl = null;
+let currentImageBase64 = null;
+
+function triggerFileInput() {
+  document.getElementById('fileInput').click();
+}
+
+function handleImageSelect(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    currentImageDataUrl = e.target.result;
+    // Extract base64 without data URI prefix
+    currentImageBase64 = e.target.result.split(',')[1];
+
+    const preview = document.getElementById('cardPreview');
+    preview.src = e.target.result;
+    preview.style.display = 'block';
+
+    const area = document.getElementById('cameraArea');
+    area.classList.add('has-image');
+    area.querySelector('.placeholder-icon').style.display = 'none';
+    area.querySelector('.placeholder-text').style.display = 'none';
+
+    document.getElementById('scanBtn').disabled = false;
+  };
+  reader.readAsDataURL(file);
+  // Reset input so the same file can be selected again
+  event.target.value = '';
+}
+
+// ═══════════════════════════════════════════════════════════
+// CLAUDE VISION API – CARD SCANNING
+// ═══════════════════════════════════════════════════════════
+async function scanCard() {
+  const apiKey = getApiKey();
+  if (!apiKey) {
+    showToast('Please add your Anthropic API key in Settings first.', 'error');
+    showTab('settings');
+    return;
+  }
+  if (!currentImageBase64) {
+    showToast('Please select or take a photo first.', 'error');
+    return;
+  }
+
+  setScanningState(true, 'Analyzing business card with AI…');
+
+  const prompt = `You are an expert at extracting information from business cards.
+Analyze this business card image and extract all contact information.
+Return ONLY a valid JSON object with these exact keys (use empty string "" if not found):
+{
+  "firstName": "",
+  "lastName": "",
+  "fullName": "",
+  "title": "",
+  "company": "",
+  "email": "",
+  "phone": "",
+  "phone2": "",
+  "website": "",
+  "address": "",
+  "linkedin": "",
+  "twitter": ""
+}
+Do not include any explanation or markdown — only the raw JSON object.`;
+
+  try {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-calls': 'true'
+      },
+      body: JSON.stringify({
+        model: 'claude-opus-4-6',
+        max_tokens: 512,
+        messages: [{
+          role: 'user',
+          content: [
+            {
+              type: 'image',
+              source: {
+                type: 'base64',
+                media_type: getImageMimeType(currentImageDataUrl),
+                data: currentImageBase64
+              }
+            },
+            { type: 'text', text: prompt }
+          ]
+        }]
+      })
+    });
+
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.error?.message || `API error ${response.status}`);
+    }
+
+    const data = await response.json();
+    const rawText = data.content[0].text.trim();
+
+    // Parse JSON from response (handle potential markdown wrapping)
+    let extracted;
+    try {
+      const jsonMatch = rawText.match(/\{[\s\S]*\}/);
+      extracted = JSON.parse(jsonMatch ? jsonMatch[0] : rawText);
+    } catch {
+      throw new Error('Could not parse extracted data from AI response.');
+    }
+
+    // If fullName provided but not firstName/lastName, split it
+    if (extracted.fullName && !extracted.firstName && !extracted.lastName) {
+      const parts = extracted.fullName.trim().split(/\s+/);
+      extracted.firstName = parts[0] || '';
+      extracted.lastName = parts.slice(1).join(' ') || '';
+    }
+
+    setScanningState(false);
+    openNoteModal(extracted);
+
+  } catch (err) {
+    setScanningState(false);
+    showToast('Scan failed: ' + err.message, 'error');
+    console.error(err);
+  }
+}
+
+function getImageMimeType(dataUrl) {
+  const match = dataUrl.match(/^data:(image\/[a-zA-Z+]+);base64/);
+  return match ? match[1] : 'image/jpeg';
+}
+
+function setScanningState(active, msg = '') {
+  const state = document.getElementById('scanningState');
+  const btn = document.getElementById('scanBtn');
+  if (active) {
+    state.classList.add('visible');
+    document.getElementById('scanningMsg').textContent = msg;
+    btn.disabled = true;
+  } else {
+    state.classList.remove('visible');
+    btn.disabled = !currentImageBase64;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+// MODALS
+// ═══════════════════════════════════════════════════════════
+let pendingContact = null;
+let editingContactId = null;
+
+function openNoteModal(extracted) {
+  pendingContact = extracted;
+
+  const fields = [
+    { key: 'firstName',  label: 'First Name',   half: true },
+    { key: 'lastName',   label: 'Last Name',    half: true },
+    { key: 'title',      label: 'Job Title',    half: false },
+    { key: 'company',    label: 'Company',      half: false },
+    { key: 'email',      label: 'Email',        half: false },
+    { key: 'phone',      label: 'Phone',        half: true },
+    { key: 'phone2',     label: 'Phone 2',      half: true },
+    { key: 'website',    label: 'Website',      half: false },
+    { key: 'address',    label: 'Address',      half: false },
+    { key: 'linkedin',   label: 'LinkedIn',     half: true },
+    { key: 'twitter',    label: 'Twitter',      half: true },
+  ];
+
+  document.getElementById('extractedFields').innerHTML = fields.map(f => `
+    <div class="ext-field ${f.half ? '' : 'full'}">
+      <label>${f.label}</label>
+      <input type="text" id="ef_${f.key}" value="${escHtml(extracted[f.key] || '')}">
+    </div>
+  `).join('');
+
+  document.getElementById('notesInput').value = '';
+
+  const name = [extracted.firstName, extracted.lastName].filter(Boolean).join(' ')
+    || extracted.company || 'New Contact';
+  document.getElementById('noteModalTitle').textContent = '📋 ' + name;
+
+  document.getElementById('noteModal').style.display = 'flex';
+  setTimeout(() => document.getElementById('notesInput').focus(), 300);
+}
+
+function saveContact() {
+  // Read values from editable fields
+  const fields = ['firstName','lastName','title','company','email','phone','phone2','website','address','linkedin','twitter'];
+  const contact = {};
+  fields.forEach(k => {
+    const el = document.getElementById('ef_' + k);
+    contact[k] = el ? el.value.trim() : '';
+  });
+  contact.notes = document.getElementById('notesInput').value.trim();
+  contact.dateAdded = new Date().toISOString();
+  contact.id = genId();
+  contact.imageDataUrl = currentImageDataUrl;
+
+  const contacts = getContacts();
+  contacts.unshift(contact);
+  saveContacts(contacts);
+
+  closeModal('noteModal');
+  resetScanUI();
+  renderStats();
+  renderRecent();
+  showToast(`✅ ${contact.firstName || contact.company || 'Contact'} saved!`, 'success');
+}
+
+function addManually() {
+  openNoteModal({
+    firstName:'', lastName:'', title:'', company:'',
+    email:'', phone:'', phone2:'', website:'', address:'', linkedin:'', twitter:''
+  });
+}
+
+function openDetailModal(id) {
+  const contacts = getContacts();
+  const c = contacts.find(x => x.id === id);
+  if (!c) return;
+
+  const name = [c.firstName, c.lastName].filter(Boolean).join(' ') || c.company || 'Contact';
+  document.getElementById('detailModalTitle').textContent = name;
+
+  const rows = [
+    c.title && `<div class="detail-row"><span class="dr-icon">💼</span><div><div class="dr-label">Title</div><div class="dr-value">${escHtml(c.title)}</div></div></div>`,
+    c.company && `<div class="detail-row"><span class="dr-icon">🏢</span><div><div class="dr-label">Company</div><div class="dr-value">${escHtml(c.company)}</div></div></div>`,
+    c.email && `<div class="detail-row"><span class="dr-icon">✉️</span><div><div class="dr-label">Email</div><div class="dr-value"><a href="mailto:${escHtml(c.email)}">${escHtml(c.email)}</a></div></div></div>`,
+    c.phone && `<div class="detail-row"><span class="dr-icon">📞</span><div><div class="dr-label">Phone</div><div class="dr-value"><a href="tel:${escHtml(c.phone)}">${escHtml(c.phone)}</a></div></div></div>`,
+    c.phone2 && `<div class="detail-row"><span class="dr-icon">📱</span><div><div class="dr-label">Phone 2</div><div class="dr-value"><a href="tel:${escHtml(c.phone2)}">${escHtml(c.phone2)}</a></div></div></div>`,
+    c.website && `<div class="detail-row"><span class="dr-icon">🌐</span><div><div class="dr-label">Website</div><div class="dr-value">${escHtml(c.website)}</div></div></div>`,
+    c.address && `<div class="detail-row"><span class="dr-icon">📍</span><div><div class="dr-label">Address</div><div class="dr-value">${escHtml(c.address)}</div></div></div>`,
+    c.linkedin && `<div class="detail-row"><span class="dr-icon">🔗</span><div><div class="dr-label">LinkedIn</div><div class="dr-value">${escHtml(c.linkedin)}</div></div></div>`,
+    c.twitter && `<div class="detail-row"><span class="dr-icon">🐦</span><div><div class="dr-label">Twitter / X</div><div class="dr-value">${escHtml(c.twitter)}</div></div></div>`,
+    `<div class="detail-row"><span class="dr-icon">📅</span><div><div class="dr-label">Date Added</div><div class="dr-value">${formatDate(c.dateAdded)}</div></div></div>`,
+  ].filter(Boolean).join('');
+
+  const imageSection = c.imageDataUrl
+    ? `<img src="${c.imageDataUrl}" class="card-image-preview" alt="Business card">`
+    : '';
+
+  const notesSection = c.notes
+    ? `<div class="detail-section"><h4>Notes</h4><div class="notes-box">${escHtml(c.notes)}</div></div>`
+    : '';
+
+  document.getElementById('detailModalBody').innerHTML = `
+    ${imageSection}
+    <div class="detail-section"><h4>Contact Info</h4>${rows}</div>
+    ${notesSection}
+  `;
+
+  document.getElementById('detailEditBtn').onclick = () => {
+    closeModal('detailModal');
+    openEditModal(id);
+  };
+  document.getElementById('detailEmailBtn').onclick = () => {
+    if (c.email) window.location.href = 'mailto:' + c.email;
+    else showToast('No email address on file', 'error');
+  };
+
+  document.getElementById('detailModal').style.display = 'flex';
+}
+
+function openEditModal(id) {
+  editingContactId = id;
+  const contacts = getContacts();
+  const c = contacts.find(x => x.id === id);
+  if (!c) return;
+
+  const fields = [
+    { key: 'firstName',  label: 'First Name',   half: true },
+    { key: 'lastName',   label: 'Last Name',    half: true },
+    { key: 'title',      label: 'Job Title',    half: false },
+    { key: 'company',    label: 'Company',      half: false },
+    { key: 'email',      label: 'Email',        half: false },
+    { key: 'phone',      label: 'Phone',        half: true },
+    { key: 'phone2',     label: 'Phone 2',      half: true },
+    { key: 'website',    label: 'Website',      half: false },
+    { key: 'address',    label: 'Address',      half: false },
+    { key: 'linkedin',   label: 'LinkedIn',     half: true },
+    { key: 'twitter',    label: 'Twitter',      half: true },
+  ];
+
+  document.getElementById('editFields').innerHTML = fields.map(f => `
+    <div class="ext-field ${f.half ? '' : 'full'}">
+      <label>${f.label}</label>
+      <input type="text" id="edit_${f.key}" value="${escHtml(c[f.key] || '')}">
+    </div>
+  `).join('');
+
+  document.getElementById('editNotesInput').value = c.notes || '';
+  document.getElementById('editNotesModal').style.display = 'flex';
+}
+
+function saveEditedContact() {
+  const contacts = getContacts();
+  const idx = contacts.findIndex(x => x.id === editingContactId);
+  if (idx === -1) return;
+
+  const fields = ['firstName','lastName','title','company','email','phone','phone2','website','address','linkedin','twitter'];
+  fields.forEach(k => {
+    const el = document.getElementById('edit_' + k);
+    if (el) contacts[idx][k] = el.value.trim();
+  });
+  contacts[idx].notes = document.getElementById('editNotesInput').value.trim();
+  saveContacts(contacts);
+
+  closeModal('editNotesModal');
+  renderContacts();
+  renderSheet();
+  showToast('Contact updated', 'success');
+}
+
+function deleteContact(id) {
+  if (!confirm('Delete this contact?')) return;
+  const contacts = getContacts().filter(c => c.id !== id);
+  saveContacts(contacts);
+  renderContacts();
+  renderSheet();
+  renderStats();
+  renderRecent();
+  showToast('Contact deleted', 'success');
+}
+
+function closeModal(id) {
+  document.getElementById(id).style.display = 'none';
+}
+
+function closeModalBackdrop(event, id) {
+  if (event.target === document.getElementById(id)) closeModal(id);
+}
+
+// ═══════════════════════════════════════════════════════════
+// RENDER – CONTACTS
+// ═══════════════════════════════════════════════════════════
+function renderContacts() {
+  const q = (document.getElementById('searchInput').value || '').toLowerCase();
+  let contacts = getContacts();
+  if (q) contacts = contacts.filter(c =>
+    [c.firstName, c.lastName, c.company, c.title, c.email, c.phone, c.notes]
+      .some(v => (v || '').toLowerCase().includes(q))
+  );
+
+  document.getElementById('contactsCount').textContent =
+    `${contacts.length} contact${contacts.length !== 1 ? 's' : ''}${q ? ' matching "' + q + '"' : ''}`;
+
+  const container = document.getElementById('contactCards');
+  if (!contacts.length) {
+    container.innerHTML = `<div class="empty-state"><span class="ei">${q ? '🔍' : '📇'}</span><p>${q ? 'No contacts match your search.' : 'No contacts yet.<br>Scan a business card to get started.'}</p></div>`;
+    return;
+  }
+
+  container.innerHTML = contacts.map(c => {
+    const name = [c.firstName, c.lastName].filter(Boolean).join(' ') || c.company || 'Unknown';
+    const titleCompany = [c.title, c.company].filter(Boolean).join(' · ');
+    return `
+      <div class="contact-card" onclick="openDetailModal('${c.id}')">
+        <div class="card-header">
+          <div class="card-name">${escHtml(name)}</div>
+          <div class="card-date">${formatDateShort(c.dateAdded)}</div>
+        </div>
+        ${titleCompany ? `<div class="card-title-company">${escHtml(titleCompany)}</div>` : ''}
+        <div class="card-details">
+          ${c.email ? `<div class="card-detail"><span class="di">✉️</span>${escHtml(c.email)}</div>` : ''}
+          ${c.phone ? `<div class="card-detail"><span class="di">📞</span>${escHtml(c.phone)}</div>` : ''}
+        </div>
+        ${c.notes ? `<div class="card-notes-preview">${escHtml(c.notes)}</div>` : ''}
+        <div class="card-actions" onclick="event.stopPropagation()">
+          ${c.email ? `<button class="card-action-btn" onclick="window.location='mailto:${escHtml(c.email)}'">✉️ Email</button>` : ''}
+          ${c.phone ? `<button class="card-action-btn" onclick="window.location='tel:${escHtml(c.phone)}'">📞 Call</button>` : ''}
+          <button class="card-action-btn" onclick="openEditModal('${c.id}')">✏️ Edit</button>
+          <button class="card-action-btn danger" onclick="deleteContact('${c.id}')">🗑️</button>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+// ═══════════════════════════════════════════════════════════
+// RENDER – SPREADSHEET
+// ═══════════════════════════════════════════════════════════
+let sheetSort = { col: 'dateAdded', dir: -1 };
+
+function sortSheet(col) {
+  if (sheetSort.col === col) sheetSort.dir *= -1;
+  else { sheetSort.col = col; sheetSort.dir = 1; }
+  renderSheet();
+}
+
+function renderSheet() {
+  const contacts = getContacts().slice().sort((a, b) => {
+    const va = (a[sheetSort.col] || '').toLowerCase();
+    const vb = (b[sheetSort.col] || '').toLowerCase();
+    return va < vb ? -sheetSort.dir : va > vb ? sheetSort.dir : 0;
+  });
+
+  document.getElementById('sheetCount').textContent = `${contacts.length} row${contacts.length !== 1 ? 's' : ''}`;
+
+  document.getElementById('sheetBody').innerHTML = contacts.map(c => `
+    <tr>
+      <td>${escHtml(c.firstName || '')}</td>
+      <td>${escHtml(c.lastName || '')}</td>
+      <td>${escHtml(c.company || '')}</td>
+      <td>${escHtml(c.title || '')}</td>
+      <td>${escHtml(c.email || '')}</td>
+      <td>${escHtml(c.phone || '')}</td>
+      <td>${formatDate(c.dateAdded)}</td>
+      <td>${escHtml(c.website || '')}</td>
+      <td class="notes-cell" title="${escHtml(c.notes || '')}">${escHtml((c.notes || '').slice(0, 60))}</td>
+      <td><button class="del-btn" onclick="deleteContact('${c.id}')" title="Delete">🗑</button></td>
+    </tr>
+  `).join('') || '<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:30px">No contacts yet</td></tr>';
+
+  // Update sort indicators
+  document.querySelectorAll('#spreadsheet thead th .arr').forEach(el => el.textContent = '');
+  document.querySelectorAll('#spreadsheet thead th').forEach(th => {
+    th.classList.remove('sorted');
+    const cols = ['firstName','lastName','company','title','email','phone','dateAdded','website','notes'];
+    const col = cols[Array.from(th.parentNode.children).indexOf(th)];
+    if (col === sheetSort.col) {
+      th.classList.add('sorted');
+      th.querySelector('.arr').textContent = sheetSort.dir > 0 ? ' ▲' : ' ▼';
+    }
+  });
+}
+
+// ═══════════════════════════════════════════════════════════
+// RENDER – STATS & RECENT
+// ═══════════════════════════════════════════════════════════
+function renderStats() {
+  const contacts = getContacts();
+  const now = new Date();
+  const todayStr = now.toDateString();
+  const weekAgo = new Date(now - 7 * 86400000);
+
+  const today = contacts.filter(c => new Date(c.dateAdded).toDateString() === todayStr).length;
+  const week = contacts.filter(c => new Date(c.dateAdded) >= weekAgo).length;
+  const companies = new Set(contacts.map(c => c.company).filter(Boolean)).size;
+
+  document.getElementById('stat-total').textContent = contacts.length;
+  document.getElementById('stat-today').textContent = today;
+  document.getElementById('stat-week').textContent = week;
+  document.getElementById('stat-companies').textContent = companies;
+
+  // Check API key
+  document.getElementById('apiBanner').style.display = getApiKey() ? 'none' : 'flex';
+}
+
+function renderRecent() {
+  const contacts = getContacts().slice(0, 5);
+  const el = document.getElementById('recentList');
+  if (!contacts.length) {
+    el.innerHTML = '<div style="font-size:0.82rem;color:var(--muted);text-align:center;padding:16px 0">Scanned contacts will appear here</div>';
+    return;
+  }
+  el.innerHTML = contacts.map(c => {
+    const name = [c.firstName, c.lastName].filter(Boolean).join(' ') || c.company || 'Unknown';
+    return `
+      <div style="display:flex;align-items:center;gap:12px;padding:8px 12px;background:var(--surface);border:1px solid var(--border);border-radius:10px;cursor:pointer" onclick="openDetailModal('${c.id}')">
+        <div style="width:36px;height:36px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:0.9rem;flex-shrink:0">
+          ${(c.firstName || c.company || '?')[0].toUpperCase()}
+        </div>
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:600;font-size:0.9rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(name)}</div>
+          <div style="font-size:0.75rem;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(c.company || c.email || '')}</div>
+        </div>
+        <div style="font-size:0.7rem;color:var(--muted)">${formatDateShort(c.dateAdded)}</div>
+      </div>
+    `;
+  }).join('');
+}
+
+// ═══════════════════════════════════════════════════════════
+// EXPORT / IMPORT
+// ═══════════════════════════════════════════════════════════
+function exportCSV() {
+  const contacts = getContacts();
+  if (!contacts.length) { showToast('No contacts to export', 'error'); return; }
+
+  const cols = ['firstName','lastName','company','title','email','phone','phone2','website','address','linkedin','twitter','dateAdded','notes'];
+  const headers = ['First Name','Last Name','Company','Title','Email','Phone','Phone 2','Website','Address','LinkedIn','Twitter','Date Added','Notes'];
+
+  const rows = [headers, ...contacts.map(c =>
+    cols.map(k => {
+      const v = k === 'dateAdded' ? formatDate(c[k]) : (c[k] || '');
+      return '"' + String(v).replace(/"/g, '""') + '"';
+    })
+  )];
+
+  const csv = rows.map(r => r.join(',')).join('\r\n');
+  downloadFile('card2crm-contacts.csv', 'text/csv', csv);
+  showToast('CSV exported!', 'success');
+}
+
+function copyTSV() {
+  const contacts = getContacts();
+  const cols = ['firstName','lastName','company','title','email','phone','dateAdded','notes'];
+  const headers = ['First Name','Last Name','Company','Title','Email','Phone','Date Added','Notes'];
+  const rows = [headers, ...contacts.map(c =>
+    cols.map(k => k === 'dateAdded' ? formatDate(c[k]) : (c[k] || ''))
+  )];
+  const tsv = rows.map(r => r.join('\t')).join('\n');
+  navigator.clipboard.writeText(tsv).then(() => showToast('Table copied! Paste into Excel/Sheets.', 'success'));
+}
+
+function exportJSON() {
+  const contacts = getContacts();
+  downloadFile('card2crm-backup.json', 'application/json', JSON.stringify(contacts, null, 2));
+  showToast('JSON backup exported!', 'success');
+}
+
+function importJSON(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const data = JSON.parse(e.target.result);
+      if (!Array.isArray(data)) throw new Error('Invalid format');
+      if (!confirm(`Import ${data.length} contacts? This will merge with existing contacts.`)) return;
+      const existing = getContacts();
+      const existingIds = new Set(existing.map(c => c.id));
+      const newContacts = [...existing, ...data.filter(c => !existingIds.has(c.id))];
+      saveContacts(newContacts);
+      renderStats(); renderRecent(); renderContacts(); renderSheet();
+      showToast(`Imported ${data.length} contacts`, 'success');
+    } catch (err) {
+      showToast('Import failed: ' + err.message, 'error');
+    }
+  };
+  reader.readAsText(file);
+  event.target.value = '';
+}
+
+function downloadFile(filename, mime, content) {
+  const blob = new Blob([content], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename; a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+// ═══════════════════════════════════════════════════════════
+// SETTINGS
+// ═══════════════════════════════════════════════════════════
+function saveApiKey() {
+  const key = document.getElementById('apiKeyInput').value.trim();
+  if (!key) { showToast('Please enter an API key', 'error'); return; }
+  localStorage.setItem(API_KEY_KEY, key);
+  showToast('API key saved!', 'success');
+  renderStats();
+}
+
+function clearAllData() {
+  const count = getContacts().length;
+  if (!count) { showToast('No contacts to delete', 'error'); return; }
+  if (!confirm(`Delete all ${count} contacts? This cannot be undone.`)) return;
+  saveContacts([]);
+  renderStats(); renderRecent(); renderContacts(); renderSheet();
+  showToast('All contacts deleted', 'success');
+}
+
+// ═══════════════════════════════════════════════════════════
+// UTILITIES
+// ═══════════════════════════════════════════════════════════
+function escHtml(str) {
+  return String(str)
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;')
+    .replace(/'/g,'&#39;');
+}
+
+function formatDate(iso) {
+  if (!iso) return '';
+  try {
+    const d = new Date(iso);
+    return d.toLocaleDateString('en-US', { year:'numeric', month:'short', day:'numeric' });
+  } catch { return iso; }
+}
+
+function formatDateShort(iso) {
+  if (!iso) return '';
+  try {
+    const d = new Date(iso);
+    const now = new Date();
+    const diff = now - d;
+    if (diff < 60000) return 'just now';
+    if (diff < 3600000) return Math.floor(diff / 60000) + 'm ago';
+    if (diff < 86400000) return Math.floor(diff / 3600000) + 'h ago';
+    if (diff < 604800000) return Math.floor(diff / 86400000) + 'd ago';
+    return d.toLocaleDateString('en-US', { month:'short', day:'numeric' });
+  } catch { return ''; }
+}
+
+function showToast(msg, type = '') {
+  const container = document.getElementById('toastContainer');
+  const toast = document.createElement('div');
+  toast.className = 'toast ' + type;
+  toast.textContent = msg;
+  container.appendChild(toast);
+  setTimeout(() => {
+    toast.style.opacity = '0';
+    toast.style.transition = 'opacity 0.3s';
+    setTimeout(() => toast.remove(), 300);
+  }, 3000);
+}
+
+function resetScanUI() {
+  currentImageDataUrl = null;
+  currentImageBase64 = null;
+  const preview = document.getElementById('cardPreview');
+  preview.style.display = 'none';
+  preview.src = '';
+  const area = document.getElementById('cameraArea');
+  area.classList.remove('has-image');
+  area.querySelector('.placeholder-icon').style.display = '';
+  area.querySelector('.placeholder-text').style.display = '';
+  document.getElementById('scanBtn').disabled = true;
+}
+
+// ═══════════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════════
+renderStats();
+renderRecent();
+</script>
+</body>
+</html>
